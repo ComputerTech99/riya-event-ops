@@ -1,9 +1,10 @@
 /** Field names follow the Ria schema exactly. Timestamps are normalised to epoch ms. */
 
-export type RegStatus = 'registered' | 'waitlist' | 'confirmed' | 'maybe' | 'cancelled' | 'invited';
+export type RegStatus = 'registered' | 'waitlist' | 'confirmed' | 'maybe' | 'cancelled' | 'declined' | 'invited';
 
 export interface Registrant {
   id: string;
+  eventId?: string;
   name: string;
   phone: string;
   email: string;
@@ -69,7 +70,28 @@ export interface RiaJobs {
   feedbackEmail: boolean;
 }
 
+export type QueueItemStatus = 'pending' | 'dialing' | 'active' | 'done' | 'failed' | 'skipped' | 'timeout';
+export type QueueItemReason = 'launch' | 'waitlist_promotion' | 'call_now' | 'retry';
+
+export interface CallQueueItem {
+  id: string;
+  eventId: string;
+  registrantId: string;
+  name: string;
+  reason: QueueItemReason;
+  priority: number;
+  status: QueueItemStatus;
+  attempts: number;
+  notBeforeMs: number;
+  createdAtMs: number;
+  startedAtMs: number | null;
+  executionId: string | null;
+  error: string | null;
+  updatedAt: number;
+}
+
 export interface EventConfig {
+  id?: string;
   type: EventType;
   name: string;
   /** As the organizer typed it, or ISO from Luma. */
@@ -77,6 +99,7 @@ export interface EventConfig {
   venue: string;
   capacity: number;
   lumaUrl: string | null;
+  enabled?: boolean;
   ria: RiaJobs;
 }
 
@@ -94,6 +117,7 @@ export interface GuestInput {
 export interface DataState {
   registrants: Registrant[];
   calls: Call[];
+  callQueue: CallQueueItem[];
   seatEvents: SeatEvent[];
   feedback: Feedback[];
   promptVersions: PromptVersion[];

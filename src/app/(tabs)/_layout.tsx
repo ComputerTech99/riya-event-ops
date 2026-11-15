@@ -1,8 +1,8 @@
 import { Slot, router, usePathname } from 'expo-router';
-import { useEffect } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Platform, Pressable, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Icon, useNarrow, type IconName } from '../../components/ui';
+import { Button, Icon, useNarrow, type IconName } from '../../components/ui';
 import { inbox } from '../../data/selectors';
 import { useData, useNow } from '../../data/store';
 import { F, useTheme } from '../../theme';
@@ -33,6 +33,98 @@ function useFeed() {
   };
 }
 
+function OrganizerSignIn() {
+  const t = useTheme();
+  const narrow = useNarrow();
+  const { signIn } = useData();
+  const [email, setEmail] = useState('organizer@riya.ai');
+  const [password, setPassword] = useState('riya-hack-2026');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const submit = async () => {
+    setBusy(true);
+    setErr(null);
+    try {
+      await signIn(email, password);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const inputStyle = {
+    height: 48,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    backgroundColor: t.surface2,
+    fontFamily: F.medium,
+    fontSize: 15,
+    color: t.text,
+    ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : {}),
+  };
+
+  return (
+    <View style={{ flex: 1, backgroundColor: t.canvas, padding: narrow ? 16 : 24, alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ width: '100%', maxWidth: 440, backgroundColor: t.bg, borderRadius: 24, padding: narrow ? 24 : 36, gap: 22, ...t.shadow }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <Mark size={42} />
+          <View>
+            <Text style={{ fontFamily: F.semibold, fontSize: 20, color: t.text, letterSpacing: -0.4 }}>Ria Control</Text>
+            <Text style={{ fontFamily: F.regular, fontSize: 13, color: t.muted }}>Live Firestore organiser console</Text>
+          </View>
+        </View>
+
+        <View style={{ gap: 6 }}>
+          <Text style={{ fontFamily: F.semibold, fontSize: 26, color: t.text, letterSpacing: -0.7 }}>Organiser sign-in</Text>
+          <Text style={{ fontFamily: F.regular, fontSize: 14, color: t.muted, lineHeight: 20 }}>
+            Sign in with Firebase Auth to read live events, registrants, calls and the dialer queue.
+          </Text>
+        </View>
+
+        <View style={{ gap: 14 }}>
+          <View style={{ gap: 6 }}>
+            <Text style={{ fontFamily: F.medium, fontSize: 13, color: t.text }}>Organiser email</Text>
+            <TextInput
+              value={email}
+              onChangeText={setEmail}
+              placeholder="organizer@riya.ai"
+              placeholderTextColor={t.faint}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              style={inputStyle}
+            />
+          </View>
+          <View style={{ gap: 6 }}>
+            <Text style={{ fontFamily: F.medium, fontSize: 13, color: t.text }}>Password</Text>
+            <TextInput
+              value={password}
+              onChangeText={setPassword}
+              placeholder="Password"
+              placeholderTextColor={t.faint}
+              secureTextEntry
+              autoCapitalize="none"
+              autoCorrect={false}
+              onSubmitEditing={submit}
+              style={inputStyle}
+            />
+          </View>
+        </View>
+
+        {err && (
+          <View style={{ backgroundColor: t.redSoft, borderRadius: 12, padding: 12 }}>
+            <Text style={{ fontFamily: F.medium, fontSize: 13, color: t.red }}>{err}</Text>
+          </View>
+        )}
+
+        <Button icon="lock-open-outline" label="Sign in as organiser" onPress={submit} busy={busy} />
+      </View>
+    </View>
+  );
+}
+
 export default function Shell() {
   const t = useTheme();
   const path = usePathname();
@@ -40,12 +132,24 @@ export default function Shell() {
   const insets = useSafeAreaInsets();
   const now = useNow(15000);
   const feed = useFeed();
-  const { registrants, calls, notice, dismissNotice, error, setupLoaded, setupSeen } = useData();
+  const { registrants, calls, notice, dismissNotice, error, setupLoaded, setupSeen, user, authReady, signOut } = useData();
 
-  // First launch: walk the organizer through setting up their event.
+  // First launch in mock mode: walk the organizer through setting up their event.
   useEffect(() => {
     if (setupLoaded && !setupSeen) router.replace('/setup');
   }, [setupLoaded, setupSeen]);
+
+  if (!authReady) {
+    return (
+      <View style={{ flex: 1, backgroundColor: t.canvas, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="small" color={t.text} />
+      </View>
+    );
+  }
+
+  if (!user) {
+    return <OrganizerSignIn />;
+  }
 
   const plus = (size: number) => (
     <Pressable
@@ -120,6 +224,17 @@ export default function Shell() {
               })}
             </View>
             <View style={{ flex: 1 }} />
+            <Pressable
+              onPress={() => signOut()}
+              accessibilityRole="button"
+              accessibilityLabel={`Sign out ${user.email ?? 'organiser'}`}
+              style={(st) => ({
+                width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', marginBottom: 12,
+                backgroundColor: (st as { hovered?: boolean }).hovered || st.pressed ? t.surface2 : 'transparent',
+              })}
+            >
+              <Icon name="log-out-outline" size={19} color={t.muted} />
+            </Pressable>
             <View style={{ alignItems: 'center', gap: 6 }} accessibilityLabel={feed.label}>
               <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: feed.color }} />
               <Text style={{ fontFamily: F.medium, fontSize: 10, color: t.muted, textAlign: 'center' }}>{feed.label.replace(' ', '\n')}</Text>
@@ -147,6 +262,14 @@ export default function Shell() {
             <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: feed.color }} />
             <Text style={{ fontFamily: F.medium, fontSize: 12, color: t.text }}>{feed.label}</Text>
           </View>
+          <Pressable
+            onPress={() => signOut()}
+            accessibilityRole="button"
+            accessibilityLabel="Sign out"
+            style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: t.surface2, alignItems: 'center', justifyContent: 'center' }}
+          >
+            <Icon name="log-out-outline" size={17} color={t.text} />
+          </Pressable>
           {plus(34)}
         </View>
       </View>

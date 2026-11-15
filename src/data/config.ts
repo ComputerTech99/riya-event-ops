@@ -5,19 +5,22 @@ import type { EventConfig } from './types';
  * literally, so each one is spelled out.
  */
 
-/** USE_MOCK: true until the backend is ready. Set EXPO_PUBLIC_USE_MOCK=false to read Firestore. */
-export const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK !== 'false';
+/** USE_MOCK: false by default so Ria Control reads live Firestore. Set EXPO_PUBLIC_USE_MOCK=true for mock. */
+export const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK === 'true';
 
 const projectId = process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID || 'riya-event-ops-485f';
 
 export const FIREBASE_CONFIG = {
-  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
+  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY || 'AIzaSyB80jrRGkOTXgGLURO7tVYYRZ6JtQKvMEQ',
   authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN || `${projectId}.firebaseapp.com`,
   projectId,
-  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
+  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET || `${projectId}.firebasestorage.app`,
+  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '603269343227',
+  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID || '1:603269343227:web:31ef726f79347fa59acd5e',
 };
+
+/** Bolna concurrent-call limit enforced by the backend dialer. */
+export const MAX_CONCURRENT_CALLS = Number(process.env.EXPO_PUBLIC_MAX_CONCURRENT_CALLS || 2);
 
 /** HTTPS function used by "Call now" and "Retry". */
 export const PLACE_CALL_URL =

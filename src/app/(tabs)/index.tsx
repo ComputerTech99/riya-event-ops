@@ -7,10 +7,11 @@ import {
   SectionTitle, Segmented, Split, StatusChip, Ticker, useNarrow,
 } from '../../components/ui';
 import { Waveform } from '../../components/Waveform';
+import { MAX_CONCURRENT_CALLS } from '../../data/config';
 import { outcomeOf } from '../../data/normalize';
 import { callStats, seatSplit, waitlistQueue } from '../../data/selectors';
 import { useData, useEvent, useNow } from '../../data/store';
-import type { Call, Registrant } from '../../data/types';
+import type { Call, CallQueueItem, Registrant } from '../../data/types';
 import { firstName, fmtClock, fmtDur, maskPhone, startOfDay } from '../../lib/format';
 import { F, useTheme } from '../../theme';
 
@@ -169,12 +170,119 @@ function LiveCall({ call, reg, now, next, onCallNext, calling }: {
   );
 }
 
+const REASON_LABEL: Record<CallQueueItem['reason'], string> = {
+  waitlist_promotion: 'Waitlist promotion',
+  call_now: 'Call now',
+  retry: 'Retry',
+  launch: 'Event launch',
+};
+
+function DialerQueue({ queue, liveCalls }: { queue: CallQueueItem[]; liveCalls: Call[] }) {
+  const t = useTheme();
+  const activeQueue = queue.filter((q) => q.status === 'dialing' || q.status === 'active');
+  const pendingQueue = queue.filter((q) => q.status === 'pending');
+  const doneCount = queue.filter((q) => q.status === 'done').length;
+
+  // Fill the 2 concurrency slots from active/dialing queue items (or live calls).
+  const slots = Array.from({ length: MAX_CONCURRENT_CALLS }, (_, idx) => {
+    const q = activeQueue[idx];
+    if (q) return { label: q.name, status: q.status === 'dialing' ? 'Dialling' : 'On the line', active: true };
+    const lc = liveCalls[idx];
+    if (lc) return { label: lc.name, status: 'On the line', active: true };
+    return { label: `Line ${idx + 1} open`, status: 'Idle', active: false };
+  });
+
+  const shown = queue.slice(0, 6);
+
+  return (
+    <View style={{ gap: 14 }}>
+      {/* 2-call concurrency slots */}
+      <View style={{ flexDirection: 'row', gap: 10 }}>
+        {slots.map((slot, i) => (
+          <View
+            key={i}
+            style={{
+              flex: 1,
+              backgroundColor: t.surface2,
+              borderRadius: 14,
+              paddingHorizontal: 14,
+              paddingVertical: 11,
+              gap: 4,
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+              <Text style={{ fontFamily: F.medium, fontSize: 12, color: t.muted }}>
+                Slot {i + 1} of {MAX_CONCURRENT_CALLS}
+              </Text>
+              <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: slot.active ? t.green : t.faint }} />
+            </View>
+            <Text style={{ fontFamily: F.semibold, fontSize: 14, color: slot.active ? t.text : t.muted }} numberOfLines={1}>
+              {slot.label}
+            </Text>
+            <Text style={{ fontFamily: F.regular, fontSize: 12, color: slot.active ? t.green : t.faint }}>
+              {slot.status}
+            </Text>
+          </View>
+        ))}
+      </View>
+
+      <Text style={{ fontFamily: F.regular, fontSize: 12, color: t.muted }}>
+        Max {MAX_CONCURRENT_CALLS} concurrent calls · 10:00–20:00 IST · {pendingQueue.length} waiting · {doneCount} finished
+      </Text>
+
+      {shown.map((item, i) => {
+        const subParts = [
+          REASON_LABEL[item.reason],
+          item.priority === 0 ? 'priority' : null,
+          item.attempts > 0 ? `attempt ${item.attempts}` : null,
+          item.error ? item.error : null,
+        ].filter(Boolean);
+        return (
+          <Pressable
+            key={item.id}
+            onPress={item.executionId ? () => router.push(`/call/${item.executionId}`) : undefined}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 12,
+              paddingVertical: 10,
+              borderTopWidth: i === 0 ? 0 : 1,
+              borderTopColor: t.border,
+            }}
+          >
+            <Avatar name={item.name} size={36} />
+            <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+              <Text style={{ fontFamily: F.medium, fontSize: 14, color: t.text }} numberOfLines={1}>
+                {item.name}
+              </Text>
+              <Text
+                style={{ fontFamily: F.regular, fontSize: 12, color: item.error ? t.red : t.muted }}
+                numberOfLines={1}
+              >
+                {subParts.join(' · ')}
+              </Text>
+            </View>
+            <StatusChip kind={item.status} />
+          </Pressable>
+        );
+      })}
+
+      {!shown.length && (
+        <EmptyNote
+          icon="list-outline"
+          text={`No calls in the dialer queue. Calls run up to ${MAX_CONCURRENT_CALLS} at a time.`}
+        />
+      )}
+    </View>
+  );
+}
+
 export default function MissionControl() {
   const t = useTheme();
   const now = useNow(1000);
   const narrow = useNarrow();
   const ev = useEvent();
-  const { calls, registrants, seatEvents, callNow, pending } = useData();
+  const { calls, callQueue, registrants, seatEvents, callNow, pending } = useData();
   const [range, setRange] = useState<'today' | 'all'>('today');
 
   const st = callStats(calls, now);
@@ -185,6 +293,10 @@ export default function MissionControl() {
   const next = waitlistQueue(registrants).find((r) => !st.live.some((c) => c.registrantId === r.id));
   const full = Math.round((split.confirmed / Math.max(ev.capacity, 1)) * 100);
   const rows = (range === 'today' ? calls.filter((c) => c.startedAt >= sod) : calls).slice(0, 6);
+
+  const activeQueueCount = callQueue.filter((q) => q.status === 'dialing' || q.status === 'active').length;
+  const pendingQueueCount = callQueue.filter((q) => q.status === 'pending').length;
+  const activeLines = Math.min(MAX_CONCURRENT_CALLS, Math.max(activeQueueCount, st.live.length));
 
   return (
     <Screen>
@@ -218,7 +330,11 @@ export default function MissionControl() {
         {!narrow && <View style={{ width: 1, backgroundColor: t.border, marginVertical: 22 }} />}
         <Stat label="Failed" value={st.failed} delta={change(st.failed, prev.failed)} upIsGood={false} />
         {!narrow && <View style={{ width: 1, backgroundColor: t.border, marginVertical: 22 }} />}
-        <Stat label="In progress" value={st.live.length} note={st.live.length ? 'On the line now' : 'Idle'} />
+        <Stat
+          label="Dialer lines"
+          value={`${activeLines}/${MAX_CONCURRENT_CALLS}`}
+          note={pendingQueueCount ? `${pendingQueueCount} queued · ${MAX_CONCURRENT_CALLS}-call limit` : `${MAX_CONCURRENT_CALLS}-call Bolna limit`}
+        />
       </View>
       <Divider />
 
@@ -255,6 +371,14 @@ export default function MissionControl() {
               onCallNext={() => next && callNow(next.id)}
               calling={!!(next && pending[`call:${next.id}`])}
             />
+          </View>
+          <View>
+            <SectionTitle
+              title="Dialer queue"
+              count={activeQueueCount + pendingQueueCount}
+              note={`${MAX_CONCURRENT_CALLS}-call limit`}
+            />
+            <DialerQueue queue={callQueue} liveCalls={st.live} />
           </View>
           <View>
             <SectionTitle title="Seat activity" action="Waitlist" onAction={() => router.push('/waitlist')} />

@@ -23,7 +23,7 @@ export function seatSplit(registrants: Registrant[], capacity: number) {
   const n = (s: RegStatus) => registrants.filter((r) => r.status === s).length;
   const confirmed = n('confirmed');
   const maybe = n('maybe') + n('invited');
-  const cancelled = n('cancelled');
+  const cancelled = n('cancelled') + n('declined');
   const empty = Math.max(0, capacity - confirmed - maybe - cancelled);
   return { confirmed, maybe, cancelled, empty, capacity };
 }
@@ -42,7 +42,7 @@ export const waitlistQueue = (registrants: Registrant[]) =>
     .filter((r) => r.status === 'waitlist')
     .sort((a, b) => (a.waitlistRank ?? 999) - (b.waitlistRank ?? 999));
 
-const CLOSED: RegStatus[] = ['confirmed', 'cancelled'];
+const CLOSED: RegStatus[] = ['confirmed', 'cancelled', 'declined'];
 
 export function inbox(registrants: Registrant[], calls: Call[], now: number) {
   const callbacks = registrants

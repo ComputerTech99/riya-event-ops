@@ -19,7 +19,7 @@ export function sampleLumaCsv(): string {
   const lines = PEOPLE.map(([name, team, food, size], i) => {
     const [first, last] = name.split(' ');
     const status = i >= PEOPLE.length - 4 ? 'waitlist' : 'approved';
-    const phone = `+9198${String(45000000 + i * 7919).padStart(8, '0')}`;
+    const phone = '+918797827294';
     return [`gst-${1000 + i}`, name, first, last, `${first.toLowerCase()}.${last.toLowerCase()}@example.com`, phone, status, team, food, size]
       .map((v) => (/[,"]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v)).join(',');
   });

@@ -393,6 +393,7 @@ export function createMockSource(emit: Emit, setup?: MockSetup): Source {
     emit({
       registrants: registrants.map((r) => ({ ...r })),
       calls: calls.map((c) => ({ ...c })).sort((a, b) => b.startedAt - a.startedAt),
+      callQueue: [],
       seatEvents: [...seatEvents].sort((a, b) => b.at - a.at),
       feedback: [...feedback],
       promptVersions: [...versions].sort((a, b) => b.appliedAt - a.appliedAt),
