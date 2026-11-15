@@ -14,8 +14,7 @@ firebase/functions/lib/
 **/firestore-debug.log*
 **/ui-debug.log*
 
-# Separate repos / tool output
-Ria Control/
+# Tool output
 .playwright-mcp/
 
 # OS / editor
@@ -23,3 +22,4 @@ Ria Control/
 .vscode/
 .idea/
 **/*.local.json
+Ria Control.premerge/
