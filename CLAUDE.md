@@ -42,7 +42,6 @@ See AGENTS.md for general Expo rules (use `npx expo install`, versioned docs).
 - `public/index.html` is the web HTML shell; it sets the pre-JS background so there's no white flash.
 - `Link asChild` around `Pressable` crashed react-native-web (array style on a DOM node). Use `router.navigate` in `onPress`.
 - In a column, `flexBasis: 0` collapses cards on phones. Only `Col` inside a wide `Split` gets row flex.
-
 - Luma's API blocks browser requests (CORS), so Luma auto-fill only works in the native app. The web build shows a clear message and the fields stay editable. A small proxy function would fix web.
 
 ## Backend status (lives in ../firebase, not this repo)
