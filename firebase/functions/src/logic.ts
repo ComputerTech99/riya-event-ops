@@ -20,7 +20,7 @@ export interface Registrant {
   notes: Note[];
   waitlistRank: number | null;
   callbackTime: string | null;
-  /** Preferred call language: "kannada" or "english". */
+  /** Preferred call language: "english". */
   language: string | null;
 }
 
@@ -108,9 +108,6 @@ export function normalise(field: AgentField, raw: unknown, maxTeamSize = DEFAULT
       const map: Record<string, Status> = {
         yes: "confirmed", confirmed: "confirmed", attending: "confirmed",
         maybe: "maybe", no: "declined", declined: "declined", registered: "registered",
-        // Kannada
-        "ಹೌದು": "confirmed", "ಬರ್ತೀನಿ": "confirmed", "ಬರುತ್ತೇನೆ": "confirmed",
-        "ಬಹುಶಃ": "maybe", "ಗೊತ್ತಿಲ್ಲ": "maybe", "ಇಲ್ಲ": "declined", "ಬರಲ್ಲ": "declined",
       };
       const s = map[low];
       return s ? { ok: true, value: s } : { ok: false, message: "Status must be confirmed, maybe or declined." };
@@ -120,8 +117,6 @@ export function normalise(field: AgentField, raw: unknown, maxTeamSize = DEFAULT
       const map: Record<string, string> = {
         veg: "veg", vegetarian: "veg", "non-veg": "non-veg", nonveg: "non-veg",
         "non-vegetarian": "non-veg", jain: "jain",
-        // Kannada
-        "ಸಸ್ಯಾಹಾರ": "veg", "ವೆಜ್": "veg", "ಮಾಂಸಾಹಾರ": "non-veg", "ನಾನ್-ವೆಜ್": "non-veg", "ಜೈನ್": "jain",
       };
       return map[f] ? { ok: true, value: map[f] } : { ok: false, message: "Food preference must be veg, non-veg or jain." };
     }
@@ -136,7 +131,6 @@ export function normalise(field: AgentField, raw: unknown, maxTeamSize = DEFAULT
     case "team_size": {
       const words: Record<string, number> = {
         one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, solo: 1,
-        "ಒಂದು": 1, "ಒಬ್ಬ": 1, "ಎರಡು": 2, "ಇಬ್ಬರು": 2, "ಮೂರು": 3, "ಮೂವರು": 3, "ನಾಲ್ಕು": 4, "ನಾಲ್ವರು": 4, "ಐದು": 5, "ಆರು": 6,
       };
       const n = words[low] ?? parseInt(v, 10);
       if (!Number.isFinite(n) || n < 1) return { ok: false, message: `Team size must be a number from 1 to ${maxTeamSize}.` };
@@ -150,10 +144,9 @@ export function normalise(field: AgentField, raw: unknown, maxTeamSize = DEFAULT
     }
     case "language": {
       const map: Record<string, string> = {
-        kannada: "kannada", kn: "kannada", "ಕನ್ನಡ": "kannada",
-        english: "english", en: "english", "ಇಂಗ್ಲಿಷ್": "english", "ಇಂಗ್ಲೀಷ್": "english",
+        english: "english", en: "english",
       };
-      return map[low] ? { ok: true, value: map[low] } : { ok: false, message: "Language must be kannada or english." };
+      return map[low] ? { ok: true, value: map[low] } : { ok: false, message: "Language must be english." };
     }
     default:
       return { ok: true, value: v };

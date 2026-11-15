@@ -1,3 +1,5 @@
+import { applicationDefault, getApp, getApps, initializeApp } from "firebase-admin/app";
+import { getAuth } from "firebase-admin/auth";
 import { setGlobalOptions } from "firebase-functions/v2";
 import { onRequest, type Request } from "firebase-functions/v2/https";
 import { onSchedule } from "firebase-functions/v2/scheduler";
@@ -7,11 +9,11 @@ import {
   ADMIN_TOKEN, BOLNA_AGENT_ID, BOLNA_API_KEY, BOLNA_FROM_NUMBER, CALL_END_HOUR, CALL_START_HOUR, CALL_TIMEZONE,
   MAX_CONCURRENT_CALLS, REGION, TOOL_TOKEN, WEBHOOK_TOKEN,
 } from "./config";
-import { body, onlyPost, requireToken } from "./http";
+import { body, headerToken, onlyPost, requireToken, safeEqual } from "./http";
 import * as reg from "./registrants";
 import { saveExecution, type BolnaExecution } from "./webhook";
 import { runSeed, type SeedPayload } from "./seed";
-import { dispatch, launchEvent as launch, onCallStatus, queueStats, sweep, type DialerDeps } from "./queue";
+import { dispatch, launchEvent as launch, onCallStatus, queueRegistrantCall, queueStats, sweep, type DialerDeps } from "./queue";
 import { normaliseEventId, upsertEvent as upsert, type EventInput } from "./events";
 import { PRESETS, runImport, type ColumnMapping, type Row } from "./importer";
 import { parseCsv } from "./csv";
@@ -82,6 +84,7 @@ export const bolnaWebhook = onRequest({ secrets: [WEBHOOK_TOKEN, BOLNA_API_KEY],
     const payload = body(req) as BolnaExecution;
     const saved = await saveExecution(payload);
     const freed = await onCallStatus(saved.executionId, String(payload.status ?? ""));
+    if (freed) await new Promise((r) => setTimeout(r, 3000));
     const next = freed ? await dispatch(dialerDeps()) : null;
     res.json({ ok: true, ...saved, slotFreed: freed, dialled: next?.dialled ?? 0 });
   } catch (err) {
@@ -163,8 +166,136 @@ export const launchEvent = onRequest({ secrets: [ADMIN_TOKEN, BOLNA_API_KEY], ti
 }));
 
 /** Queue counts, optionally for one event. Body: { eventId? } */
-export const dialerStatus = onRequest({ secrets: [ADMIN_TOKEN] }, admin(async (b) =>
-  ({ counts: await queueStats(b.eventId ? normaliseEventId(b.eventId) : undefined), maxConcurrent: MAX_CONCURRENT_CALLS.value() })));
+export const dialerStatus = onRequest({ secrets: [ADMIN_TOKEN] }, admin(async (b) => {
+  const evId = b.eventId ? normaliseEventId(b.eventId) : undefined;
+  const db = (await import("./db")).firestore();
+  const qSnap = await (evId ? db.collection("callQueue").where("eventId", "==", evId) : db.collection("callQueue")).get();
+  const rSnap = await (evId ? db.collection("registrants").where("eventId", "==", evId) : db.collection("registrants")).get();
+  const cSnap = await db.collection("calls").get();
+  return {
+    counts: await queueStats(evId),
+    maxConcurrent: MAX_CONCURRENT_CALLS.value(),
+    queue: qSnap.docs.map((d) => ({ id: d.id, ...d.data(), updatedAt: undefined })),
+    registrants: rSnap.docs.map((d) => ({
+      id: d.id,
+      name: d.get("name"),
+      phone: d.get("phone"),
+      status: d.get("status"),
+      waitlistRank: d.get("waitlistRank"),
+      teamName: d.get("teamName"),
+      teamSize: d.get("teamSize"),
+      foodPref: d.get("foodPref"),
+      tshirtSize: d.get("tshirtSize"),
+      language: d.get("language"),
+      lastCall: d.get("lastCall"),
+      notes: d.get("notes"),
+    })),
+    calls: cSnap.docs
+      .filter((d) => !d.id.startsWith("_") && (!evId || d.get("eventId") === evId))
+      .map((d) => ({
+        executionId: d.id,
+        registrantId: d.get("registrantId"),
+        eventId: d.get("eventId"),
+        trigger: d.get("trigger"),
+        status: d.get("status"),
+        durationSec: d.get("durationSec"),
+        terminationReason: d.get("terminationReason"),
+        extractedData: d.get("extractedData"),
+        transcript: d.get("transcript"),
+      })),
+  };
+}));
 
 /** Seeding endpoint used by scripts/seed.ts. */
 export const adminSeed = onRequest({ secrets: [ADMIN_TOKEN] }, admin(async (b) => runSeed(b as SeedPayload)));
+
+const ensureAuthApp = () => {
+  if (!getApps().length) initializeApp({ credential: applicationDefault() });
+  return getAuth();
+};
+
+async function enableFirebaseEmailAuth(): Promise<void> {
+  const cred = getApp().options.credential ?? applicationDefault();
+  const tok = await cred.getAccessToken();
+  const projectId = process.env.GCLOUD_PROJECT || "riya-event-ops-485f";
+  await fetch(
+    `https://identitytoolkit.googleapis.com/admin/v2/projects/${projectId}/config?updateMask=signIn.email,signIn.anonymous`,
+    {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${tok.access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        signIn: {
+          email: { enabled: true, passwordRequired: true },
+          anonymous: { enabled: true },
+        },
+      }),
+    },
+  );
+}
+
+/**
+ * Organiser dashboard endpoint (`Ria Control`).
+ * - `{ action: "organizerSignIn", email, password }`: enables Firebase Email/Password auth and provisions the
+ *   organiser account in Firebase Auth so client `signInWithEmailAndPassword` and Firestore listeners work.
+ * - `{ registrantId, reason: "call_now" | "retry" }`: requires a valid Firebase Auth ID token (or ADMIN_TOKEN)
+ *   and enqueues the call in `callQueue` through the backend dialer (never calling Bolna directly).
+ */
+export const placeCall = onRequest({ secrets: [ADMIN_TOKEN, BOLNA_API_KEY], timeoutSeconds: 60 }, async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+  if (!onlyPost(req, res)) return;
+
+  try {
+    const b = body(req);
+    const auth = ensureAuthApp();
+
+    if (b.action === "organizerSignIn") {
+      const email = String(b.email ?? "organizer@riya.ai").trim().toLowerCase();
+      const password = String(b.password ?? "").trim();
+      if (!email.includes("@") || password.length < 6) {
+        res.status(400).json({ ok: false, message: "Enter a valid organiser email and password (6+ characters)." });
+        return;
+      }
+      await enableFirebaseEmailAuth().catch((e) => logger.warn("enableFirebaseEmailAuth", { err: String(e) }));
+
+      let user = await auth.getUserByEmail(email).catch(() => null);
+      if (!user) {
+        user = await auth.createUser({ email, password, displayName: "Riya Organiser" });
+      } else {
+        await auth.updateUser(user.uid, { password });
+      }
+      res.json({ ok: true, uid: user.uid, email: user.email });
+      return;
+    }
+
+    const token = headerToken(req);
+    const adminTok = ADMIN_TOKEN.value();
+    let authorized = Boolean(adminTok && token && safeEqual(token, adminTok));
+    if (!authorized && token) {
+      try {
+        await auth.verifyIdToken(token);
+        authorized = true;
+      } catch {
+        authorized = false;
+      }
+    }
+    if (!authorized) {
+      res.status(401).json({ ok: false, message: "Sign in as an organiser to place calls." });
+      return;
+    }
+
+    const result = await queueRegistrantCall(b.registrantId, b.reason, dialerDeps());
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    logger.warn("placeCall error", { err: String(err) });
+    res.status(400).json({ ok: false, message: err instanceof Error ? err.message : String(err) });
+  }
+});

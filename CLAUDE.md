@@ -12,10 +12,10 @@ Riya: a Bolna voice agent that calls hackathon registrants, with a Firebase back
   - Stay on `firebase-admin@13`: version 14 needs Node 22+ engines and was pinned down earlier.
 - Base URL: `https://asia-south1-riya-event-ops-485f.cloudfunctions.net`. Functions: tools `lookupRegistrant`, `updateRegistrant`, `releaseSeat`; `bolnaWebhook`; admin `upsertEvent`, `importGuests`, `launchEvent`, `dialerStatus`, `adminSeed`; scheduled `dialerTick` (every minute). Admin CLI: `npm run event|import|launch|dialer` (see `firebase/README.md`).
 - Bolna agent **Riya**: `39099f1d-2f02-4586-b51d-5bc9f3884842`. It is the only agent on the account.
-  - **English-first, Kannada supported** (user decision, 2026-11-15). The greeting asks "English or Kannada?"; English is the default when unclear. Riya switches whenever the caller does. The choice is saved in `registrants.language`.
-  - Model `gpt-4.1-mini`. Sarvam STT `saaras:v4` (`kn`, so it understands both languages; English words may arrive in Kannada script, and the prompt handles that). Sarvam TTS `bulbul:v3`, voice Priya (`kn`). Plivo telephony.
+  - **English** (user decision, 2026-11-15). Riya speaks natural Indian English throughout the call.
+  - Model `gpt-4.1-mini`. English STT and English TTS (`en-IN`). Plivo telephony.
   - Hangup by prompt is on. `pre_call_message` is `""` on all tools (omitting it makes Bolna insert a default filler). Calling window 10:00–20:00 (recipient time). Call summaries are on.
-  - Tool values are always English; the backend also normalises common Kannada answers.
+  - Tool values are always English.
   - Prompt sources: `firebase/prompt/` (system, welcome, hangup, extraction), mirrored to `promptEngine/riya`.
   - Always place calls with all five variables. Without them, `registrant_id` is wrong and the model invents dates.
   - Prompt variables: `{name}`, `{registrant_id}`, `{event_name}`, `{event_date}`, `{venue}`.
@@ -69,13 +69,12 @@ Use `--non-interactive` for deploys from Claude.
 
 ## To do
 
-- [x] First live call (2026-11-15): flow worked. Fixed after it: hang-up, repeated fillers, stiffness, guessing, missing variables, then switched to bilingual (English-first, Kannada supported).
-- [ ] **End-to-end call test (Kannada agent)**: put a real test number (the user's own) on R005 in `seed/registrants.json` and re-seed. Then call R001 from the Bolna dashboard and decline. Confirm Riya calls R005 and that both calls land in `calls`.
+- [x] First live call (2026-11-15): flow worked. Fixed after it: hang-up, repeated fillers, stiffness, guessing, missing variables, English-only voice/transcriber.
+- [ ] **End-to-end call test**: put a real test number (the user's own) on R005 in `seed/registrants.json` and re-seed. Then call R001 and decline. Confirm Riya calls R005 and that both calls land in `calls`.
   - Not yet verified live: Bolna's actual tool request body format, and the webhook payload.
 - [x] Multi-event support, Luma/CSV guest importer, launch with a 2-call concurrency dialer (2026-11-15). Unit + emulator tests and live dry runs pass.
 - [ ] Import the real event: `npm run event -- --luma <link> --capacity N`, then the Luma CSV via `npm run import`, then enable and launch. The `LUMA-1A2RJJ9R` dry run already reads the real hackathon page.
 - [ ] Ria Control dashboard: switch off mock data and read `events`, `registrants`, `calls`, `callQueue`. Its "Call now" should enqueue via the dialer rather than call Bolna directly.
-- [ ] Listen to the Sarvam voice "Priya" in Kannada and English. Alternatives on `bulbul:v3`: Kavya, Shreya, Ritu, Suhani (voice_id = lowercase name).
 - [ ] Optional `BOLNA_FROM_NUMBER` (E.164) caller ID. Empty means the account default.
 - [ ] Callback scheduling: `callback_time` is free text. The dialer could enqueue it with `notBeforeMs` once the time is parsed.
 - [ ] Event Q&A only knows name, date and venue. Add a knowledge base or more event facts if needed.

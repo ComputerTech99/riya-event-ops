@@ -13,10 +13,10 @@ import { logger } from "firebase-functions";
 import { BolnaError, placeCall, toE164 } from "./bolna";
 import { COL } from "./config";
 import { eventFrom, firestore, refs, registrantFrom } from "./db";
-import { callVariables, type EventInfo, type Note, type Status } from "./logic";
+import { callVariables, normaliseId, type EventInfo, type Note, type Status } from "./logic";
 
 export type QueueStatus = "pending" | "dialing" | "active" | "done" | "failed" | "skipped" | "timeout";
-export type QueueReason = "launch" | "waitlist_promotion";
+export type QueueReason = "launch" | "waitlist_promotion" | "call_now" | "retry";
 
 export interface QueueItem {
   id: string;
@@ -43,7 +43,7 @@ export interface DialerDeps {
   placeCall?: typeof placeCall;
 }
 
-export const PRIORITY = { waitlist_promotion: 0, launch: 10 } as const;
+export const PRIORITY: Record<QueueReason, number> = { waitlist_promotion: 0, call_now: 0, retry: 0, launch: 10 };
 const ACTIVE: QueueStatus[] = ["dialing", "active"];
 const MAX_ATTEMPTS = 3;
 const RETRY_DELAY_MS = 2 * 60_000;
@@ -77,7 +77,9 @@ export function pickNext(pending: QueueItem[], enabledEvents: Set<string>, nowMs
 }
 
 export const queueId = (reason: QueueReason, eventId: string, registrantId: string) =>
-  reason === "launch" ? `launch_${eventId}_${registrantId}` : `promo_${registrantId}`;
+  reason === "launch" ? `launch_${eventId}_${registrantId}`
+  : reason === "waitlist_promotion" ? `promo_${registrantId}`
+  : `${reason}_${registrantId}`;
 
 // ------------------------------------------------------------------ Firestore
 
@@ -147,7 +149,22 @@ async function claimNext(deps: DialerDeps): Promise<QueueItem | null> {
     if (active.size >= deps.maxConcurrent) return null;
     const pendingSnap = await tx.get(queue().where("status", "==", "pending").orderBy("priority").orderBy("createdAtMs").limit(50));
     if (pendingSnap.empty) return null;
-    const pending = pendingSnap.docs.map((d) => itemFrom(d.id, d.data()));
+    let pending = pendingSnap.docs.map((d) => itemFrom(d.id, d.data()));
+    if (!active.empty) {
+      const regIds = [...new Set([...active.docs.map((d) => String(d.get("registrantId"))), ...pending.map((p) => p.registrantId)])];
+      const regSnaps = await tx.getAll(...regIds.map((id) => refs.registrant(id)));
+      const phoneOf = new Map(regSnaps.filter((s) => s.exists).map((s) => [s.id, toE164(String(s.get("phone") ?? ""))]));
+      const busyPhones = new Set(
+        active.docs.map((d) => phoneOf.get(String(d.get("registrantId")))).filter((p): p is string => !!p),
+      );
+      if (busyPhones.size) {
+        pending = pending.filter((p) => {
+          const ph = phoneOf.get(p.registrantId);
+          return !ph || !busyPhones.has(ph);
+        });
+      }
+      if (!pending.length) return null;
+    }
     const eventIds = [...new Set(pending.map((p) => p.eventId))];
     const evSnaps = await tx.getAll(...eventIds.map((id) => refs.event(id)));
     const enabled = new Set(evSnaps.filter((s) => s.exists && s.get("enabled") === true).map((s) => s.id));
@@ -203,7 +220,9 @@ async function dial(item: QueueItem, deps: DialerDeps): Promise<void> {
         }, { merge: true }),
         refs.registrant(reg.id).update({
           lastCall: { executionId, status, at: new Date().toISOString() },
-          notes: FieldValue.arrayUnion(note(`${item.reason === "launch" ? "Launch" : "Promotion"} call placed (${executionId}).`)),
+          notes: FieldValue.arrayUnion(note(
+            `${item.reason === "launch" ? "Launch" : item.reason === "waitlist_promotion" ? "Promotion" : item.reason === "retry" ? "Retry" : "Organiser"} call placed (${executionId}).`,
+          )),
         }),
       ]);
     } catch (err) {
@@ -298,4 +317,48 @@ export async function queueStats(eventId?: string) {
   const counts: Record<string, number> = {};
   snap.docs.forEach((d) => { counts[d.get("status")] = (counts[d.get("status")] ?? 0) + 1; });
   return counts;
+}
+
+const ALL_STATUSES: Status[] = ["registered", "confirmed", "maybe", "declined", "waitlist", "cancelled"];
+
+/** Enqueue a single organiser-initiated call ("call_now" or "retry") via the dialer and dispatch immediately. */
+export async function queueRegistrantCall(
+  rawRegistrantId: unknown,
+  rawReason: unknown,
+  deps: DialerDeps,
+) {
+  const registrantId = normaliseId(rawRegistrantId);
+  if (!registrantId) throw new Error("registrantId is required.");
+  const snap = await refs.registrant(registrantId).get();
+  if (!snap.exists) throw new Error(`Registrant ${registrantId} not found.`);
+  const reg = registrantFrom(snap);
+  const eventId = reg.eventId || "HACK2026";
+  const evRef = refs.event(eventId);
+  const evSnap = await evRef.get();
+  if (evSnap.exists && !evSnap.get("enabled")) {
+    await evRef.update({ enabled: true, updatedAt: FieldValue.serverTimestamp() });
+  }
+  const reason: QueueReason = rawReason === "retry" ? "retry" : "call_now";
+  const qId = queueId(reason, eventId, reg.id);
+
+  const enq = await enqueue(
+    [{ eventId, registrantId: reg.id, reason, allowedStatuses: ALL_STATUSES }],
+    { force: true },
+  );
+  const d = await dispatch(deps);
+  const itemSnap = await queue().doc(qId).get();
+  const itemData = itemSnap.data() ?? {};
+  return {
+    queueId: qId,
+    registrantId: reg.id,
+    eventId,
+    reason,
+    status: (itemData.status as string) ?? "pending",
+    executionId: (itemData.executionId as string | null) ?? null,
+    error: (itemData.error as string | null) ?? null,
+    ...enq,
+    dialledNow: d.dialled,
+    note: d.reason ?? null,
+    maxConcurrent: deps.maxConcurrent,
+  };
 }

@@ -13,9 +13,18 @@ import { join } from "node:path";
 const root = join(__dirname, "..");
 const read = (p: string) => readFileSync(join(root, p), "utf8");
 
+const DEFAULT_URL = "https://asia-south1-riya-event-ops-485f.cloudfunctions.net/adminSeed";
+
+function getToken(): string {
+  if (process.env.ADMIN_TOKEN) return process.env.ADMIN_TOKEN;
+  const f = join(root, "..", ".secrets.local");
+  const m = existsSync(f) ? /^ADMIN_TOKEN=(.+)$/m.exec(readFileSync(f, "utf8")) : null;
+  return m ? m[1].trim() : "";
+}
+
 async function main() {
-  const url = process.argv[2] ?? process.env.SEED_URL;
-  const token = process.env.ADMIN_TOKEN;
+  const url = process.argv[2] ?? process.env.SEED_URL ?? DEFAULT_URL;
+  const token = getToken();
   if (!url || !token) {
     console.error("Usage: ADMIN_TOKEN=... npm run seed -- <adminSeed URL>");
     process.exit(1);

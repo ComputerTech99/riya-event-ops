@@ -4,7 +4,7 @@ import { callVariables, spokenDate, type EventInfo, type Registrant } from "../s
 import { parseCsv } from "../src/csv";
 import { parseLumaHtml, parseLumaUrl, speakableVenue } from "../src/luma";
 import { guestId, mapGuestStatus, planImport, PRESETS } from "../src/importer";
-import { isTerminal, pickNext, withinWindow, type QueueItem } from "../src/queue";
+import { isTerminal, pickNext, PRIORITY, queueId, withinWindow, type QueueItem } from "../src/queue";
 
 const event = (o: Partial<EventInfo> = {}): EventInfo => ({
   id: "E1", name: "Build Out Loud", date: "2026-12-13", startAt: null, timezone: "Asia/Kolkata",
@@ -127,4 +127,8 @@ test("dialer helpers", () => {
   assert.equal(pickNext(pending, new Set(["E1"]), 1_000)?.id, "promo");
   assert.equal(pickNext(pending, new Set(["E1"]), 20_000)?.id, "backoff");
   assert.equal(pickNext(pending, new Set([]), 1_000), null);
+  assert.equal(queueId("call_now", "E1", "R001"), "call_now_R001");
+  assert.equal(queueId("retry", "E1", "R001"), "retry_R001");
+  assert.equal(PRIORITY.call_now, 0);
+  assert.equal(PRIORITY.retry, 0);
 });

@@ -1,10 +1,22 @@
 rules_version = '2';
-// All access goes through Cloud Functions (Admin SDK bypasses rules).
-// Clients get nothing: registrant data includes phone numbers.
+// Organiser dashboard requires Firebase Auth; unauthenticated clients get nothing.
+// Cloud Functions use the Admin SDK, which bypasses rules.
 service cloud.firestore {
   match /databases/{database}/documents {
     match /{document=**} {
-      allow read, write: if false;
+      allow read: if request.auth != null;
+    }
+    match /events/{eventId} {
+      allow write: if request.auth != null;
+    }
+    match /registrants/{registrantId} {
+      allow write: if request.auth != null;
+    }
+    match /seats/{eventId} {
+      allow write: if request.auth != null;
+    }
+    match /seatEvents/{id} {
+      allow write: if request.auth != null;
     }
   }
 }

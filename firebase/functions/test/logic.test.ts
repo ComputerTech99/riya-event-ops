@@ -27,14 +27,7 @@ test("normalise: spoken answers", () => {
   assert.equal(normalise("team_name", "  ").ok, false);
 });
 
-test("normalise: Kannada answers", () => {
-  assert.deepEqual(normalise("status", "ಹೌದು"), { ok: true, value: "confirmed" });
-  assert.deepEqual(normalise("status", "ಇಲ್ಲ"), { ok: true, value: "declined" });
-  assert.deepEqual(normalise("food_pref", "ಸಸ್ಯಾಹಾರ"), { ok: true, value: "veg" });
-  assert.deepEqual(normalise("food_pref", "ಮಾಂಸಾಹಾರ"), { ok: true, value: "non-veg" });
-  assert.deepEqual(normalise("team_size", "ಮೂರು"), { ok: true, value: 3 });
-  assert.equal(normalise("team_size", "ಐದು").ok, false);
-  assert.deepEqual(normalise("language", "ಕನ್ನಡ"), { ok: true, value: "kannada" });
+test("normalise: language", () => {
   assert.deepEqual(normalise("language", "English"), { ok: true, value: "english" });
   assert.equal(normalise("language", "tamil").ok, false);
 });

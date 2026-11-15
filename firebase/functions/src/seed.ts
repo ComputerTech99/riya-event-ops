@@ -90,6 +90,12 @@ export async function runSeed(p: SeedPayload) {
     batch.set(db.collection(col).doc("_schema"), data);
   }
 
+  const eventIds = (p.events ?? []).map((e) => e.id);
+  if (eventIds.length) {
+    const qSnap = await db.collection(COL.callQueue).where("eventId", "in", eventIds).get();
+    qSnap.docs.forEach((d) => batch.delete(d.ref));
+  }
+
   await batch.commit();
   return counts;
 }

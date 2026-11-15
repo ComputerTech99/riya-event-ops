@@ -1,7 +1,7 @@
 import { FieldValue } from "firebase-admin/firestore";
 import { COL } from "./config";
 import { firestore, refs } from "./db";
-import { normaliseId } from "./logic";
+import { normalise, normaliseId } from "./logic";
 
 /** Subset of Bolna's execution payload we rely on (see docs: post-call/execution-payload). */
 export interface BolnaExecution {
@@ -97,11 +97,10 @@ export async function saveExecution(payload: BolnaExecution): Promise<{ executio
       regId = q.empty ? null : q.docs[0].id;
     }
     let eventId: string | null = (prev.eventId as string | undefined) ?? null;
-    let regExists = false;
+    let regSnap: FirebaseFirestore.DocumentSnapshot | null = null;
     if (regId) {
-      const reg = await tx.get(refs.registrant(regId));
-      regExists = reg.exists;
-      if (reg.exists) eventId = eventId ?? (reg.get("eventId") as string | null) ?? null;
+      regSnap = await tx.get(refs.registrant(regId));
+      if (regSnap.exists) eventId = eventId ?? (regSnap.get("eventId") as string | null) ?? null;
     }
 
     // Bolna fires on every status change; deliveries can arrive out of order.
@@ -121,10 +120,29 @@ export async function saveExecution(payload: BolnaExecution): Promise<{ executio
         ...(existing.exists ? {} : { createdAt: now }),
         updatedAt: now,
       }, { merge: true });
-      if (regId && regExists) {
-        tx.update(refs.registrant(regId), {
+      if (regId && regSnap?.exists) {
+        const regPatch: Record<string, unknown> = {
           lastCall: { executionId: m.executionId, status: m.status, terminationReason: m.terminationReason, durationSec: m.durationSec, at: new Date().toISOString() },
-        });
+        };
+        const gen = (m.extractedData.General as Record<string, unknown> | undefined)?.["Call Summary"] as Record<string, unknown> | undefined;
+        const sumText = [m.summary, gen?.subjective, m.transcript].filter(Boolean).join("\n");
+        if (regSnap.get("foodPref") == null) {
+          const rawFood = m.extractedData.food_pref ?? (/\b(non-veg|non\s+vegetarian|jain|vegetarian|veg)\b/i.exec(sumText)?.[1]);
+          if (rawFood) {
+            const nf = normalise("food_pref", rawFood);
+            if (nf.ok) regPatch.foodPref = nf.value;
+          }
+        }
+        if (regSnap.get("tshirtSize") == null) {
+          const rawShirt = m.extractedData.tshirt_size ??
+            (/\b(XS|S|M|L|XL|XXL|extra\s+small|extra\s+large|double\s+xl|small|medium|large)\s+T-shirt\b/i.exec(sumText)?.[1]) ??
+            (/T-shirt\s+size\s+is\s+(XS|S|M|L|XL|XXL|extra\s+small|extra\s+large|double\s+xl|small|medium|large)\b/i.exec(sumText)?.[1]);
+          if (rawShirt) {
+            const ns = normalise("tshirt_size", rawShirt);
+            if (ns.ok) regPatch.tshirtSize = ns.value;
+          }
+        }
+        tx.update(refs.registrant(regId), regPatch);
       }
     }
 
