@@ -1,50 +1,54 @@
 import { Platform, useColorScheme } from 'react-native';
 
 /**
- * Light: soft lavender canvas, white rounded cards, violet primary.
- * Dark: near-black canvas, lime highlight.
- * The system setting decides which one shows.
+ * Calm, editorial dashboard: white page on a lavender canvas, black pills,
+ * hairline dividers instead of boxes, colour only for meaning.
+ * Dark mode inverts it. The system setting picks which one shows.
  */
 export interface Theme {
   mode: 'light' | 'dark';
+  /** Backdrop around the app panel on wide screens. */
+  canvas: string;
   bg: string; surface: string; surface2: string; border: string;
   text: string; muted: string; faint: string;
   primary: string; onPrimary: string; primarySoft: string;
-  /** Highlight card (live call). */
+  /** Live call card. */
   hero: string; onHero: string; heroMuted: string; heroInset: string;
   green: string; greenSoft: string;
   amber: string; amberSoft: string;
   red: string; redSoft: string;
-  chart: string; chartSoft: string;
+  chart: string; ring: string;
   shadow: object;
 }
 
 const light: Theme = {
   mode: 'light',
-  bg: '#F5F4F8', surface: '#FFFFFF', surface2: '#F3F2F7', border: '#ECEAF2',
-  text: '#17161D', muted: '#74728A', faint: '#B6B4C4',
-  primary: '#5A54C8', onPrimary: '#FFFFFF', primarySoft: '#EDECFA',
-  hero: '#5A54C8', onHero: '#FFFFFF', heroMuted: 'rgba(255,255,255,0.72)', heroInset: 'rgba(255,255,255,0.12)',
-  green: '#1F8F55', greenSoft: '#E2F4E9',
-  amber: '#D2701A', amberSoft: '#FCEEDF',
-  red: '#D23F39', redSoft: '#FBE8E7',
-  chart: '#9DB05E', chartSoft: '#EDF1DE',
+  canvas: '#ECE7F1',
+  bg: '#FFFFFF', surface: '#FFFFFF', surface2: '#F4F4F6', border: '#ECECEF',
+  text: '#111114', muted: '#6E6E78', faint: '#A9A9B2',
+  primary: '#111114', onPrimary: '#FFFFFF', primarySoft: '#F4F4F6',
+  hero: '#111114', onHero: '#FFFFFF', heroMuted: 'rgba(255,255,255,0.6)', heroInset: 'rgba(255,255,255,0.08)',
+  green: '#1E9E57', greenSoft: '#E4F5EA',
+  amber: '#E08A1E', amberSoft: '#FCF0DE',
+  red: '#D9473F', redSoft: '#FBE7E5',
+  chart: '#1E9E57', ring: '#B7A6F2',
   shadow: Platform.select({
-    web: { boxShadow: '0 1px 2px rgba(23,22,29,0.04), 0 6px 18px rgba(23,22,29,0.04)' },
-    default: { shadowColor: '#17161D', shadowOpacity: 0.05, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 1 },
+    web: { boxShadow: '0 1px 2px rgba(17,17,20,0.04), 0 8px 24px rgba(17,17,20,0.06)' },
+    default: { shadowColor: '#111114', shadowOpacity: 0.06, shadowRadius: 14, shadowOffset: { width: 0, height: 4 }, elevation: 2 },
   })!,
 };
 
 const dark: Theme = {
   mode: 'dark',
-  bg: '#0E0E0F', surface: '#18181A', surface2: '#232326', border: '#26262A',
-  text: '#F3F3EF', muted: '#9C9CA4', faint: '#56565E',
-  primary: '#D5F25E', onPrimary: '#111111', primarySoft: '#2A3014',
-  hero: '#D5F25E', onHero: '#111111', heroMuted: 'rgba(17,17,17,0.62)', heroInset: 'rgba(17,17,17,0.08)',
-  green: '#6FDB8B', greenSoft: '#16301F',
-  amber: '#F5A54A', amberSoft: '#352514',
-  red: '#FF6B5F', redSoft: '#3A1A18',
-  chart: '#D5F25E', chartSoft: '#2A3014',
+  canvas: '#08080A',
+  bg: '#111114', surface: '#111114', surface2: '#1F1F24', border: '#26262C',
+  text: '#F2F2F0', muted: '#9A9AA3', faint: '#5A5A63',
+  primary: '#F2F2F0', onPrimary: '#111114', primarySoft: '#1F1F24',
+  hero: '#1F1F24', onHero: '#F2F2F0', heroMuted: 'rgba(242,242,240,0.6)', heroInset: 'rgba(255,255,255,0.06)',
+  green: '#5FD38A', greenSoft: '#15301F',
+  amber: '#F2A54A', amberSoft: '#33240F',
+  red: '#FF6B61', redSoft: '#3A1916',
+  chart: '#5FD38A', ring: '#9B8AF0',
   shadow: {},
 };
 

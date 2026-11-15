@@ -3,9 +3,9 @@
  * Ria works the waitlist on her own, calls progress line by line, and "Call now",
  * "Retry" and "Promote" behave the way the real backend will.
  */
-import { EVENT_NAME, SEAT_CAPACITY } from './config';
+import { DEMO_EVENT } from './config';
 import type {
-  Call, Emit, Feedback, PlaceCallRequest, PromptVersion, Rating, Registrant, RegStatus, SeatEvent, Source,
+  Call, Emit, EventConfig, Feedback, GuestInput, PlaceCallRequest, PromptVersion, Rating, Registrant, RegStatus, SeatEvent, Source,
 } from './types';
 
 const MIN = 60_000;
@@ -64,7 +64,11 @@ const PLAN: RegStatus[] = [
 
 interface Plan { outcome: 'confirm' | 'maybe' | 'cancel' | 'no_answer' | 'busy'; lines: string[]; lengthSec: number }
 
-export function createMockSource(emit: Emit): Source {
+export interface MockSetup { event: EventConfig; guests: GuestInput[] }
+
+/** Without `setup` it runs the demo event; with it, it runs the organizer's own guest list from a clean slate. */
+export function createMockSource(emit: Emit, setup?: MockSetup): Source {
+  const ev = setup?.event ?? DEMO_EVENT;
   const rnd = mulberry32(20261115);
   const pick = <T,>(a: readonly T[]) => a[Math.floor(rnd() * a.length)];
   const between = (a: number, b: number) => a + Math.floor(rnd() * (b - a + 1));
@@ -129,7 +133,7 @@ export function createMockSource(emit: Emit): Source {
   function lines(r: Registrant, kind: Plan['outcome'], question?: string): string[] {
     const f = r.name.split(' ')[0];
     const open = [
-      `assistant: Hi, am I speaking with ${f}? This is Ria from the ${EVENT_NAME} organising team.`,
+      `assistant: Hi, am I speaking with ${f}? This is Ria from the ${ev.name} organising team.`,
       'user: Yes, speaking.',
     ];
     const q = question
@@ -139,15 +143,17 @@ export function createMockSource(emit: Emit): Source {
     if (kind === 'confirm') {
       return [
         ...open,
-        `assistant: I'm calling to confirm your seat for ${EVENT_NAME} on the 6th and 7th of December. Will you be joining us?`,
+        `assistant: I'm calling to confirm your seat for ${ev.name}${ev.date ? ` on ${ev.date}` : ''}. Will you be joining us?`,
         `user: Yes, we're coming${r.teamName ? `, team ${r.teamName}` : ''}.`,
         'assistant: Great. How many people are on your team?',
         `user: ${r.teamSize ?? 1}.`,
-        'assistant: Any food preference I should note? Veg, non-veg, Jain or vegan?',
-        `user: ${r.foodPref ?? 'veg'}, please.`,
-        'assistant: And your T-shirt size?',
-        `user: ${r.tshirtSize ?? 'M'}.`,
-        `assistant: That's ${r.tshirtSize ?? 'M'}, noted.`,
+        ...(ev.ria.collectFoodTshirt ? [
+          'assistant: Any food preference I should note? Veg, non-veg, Jain or vegan?',
+          `user: ${r.foodPref ?? 'veg'}, please.`,
+          'assistant: And your T-shirt size?',
+          `user: ${r.tshirtSize ?? 'M'}.`,
+          `assistant: That's ${r.tshirtSize ?? 'M'}, noted.`,
+        ] : []),
         ...q,
         "assistant: You're confirmed. Check-in details will reach you by email. See you there!",
       ];
@@ -155,7 +161,7 @@ export function createMockSource(emit: Emit): Source {
     if (kind === 'maybe') {
       return [
         ...open,
-        `assistant: I'm calling to confirm your seat for ${EVENT_NAME}. Will you be joining us?`,
+        `assistant: I'm calling to confirm your seat for ${ev.name}. Will you be joining us?`,
         "user: I'm not sure yet, it depends on my exams.",
         'assistant: No problem. When would be a good time to call back?',
         'user: Maybe tomorrow evening?',
@@ -166,7 +172,7 @@ export function createMockSource(emit: Emit): Source {
     if (kind === 'cancel') {
       return [
         ...open,
-        `assistant: I'm calling to confirm your seat for ${EVENT_NAME}. Will you be joining us?`,
+        `assistant: I'm calling to confirm your seat for ${ev.name}. Will you be joining us?`,
         "user: Sorry, I can't make it anymore.",
         "assistant: Thanks for letting us know. I'll release your seat so someone on the waitlist can take it.",
         ...q,
@@ -269,6 +275,22 @@ export function createMockSource(emit: Emit): Source {
   });
   byStatus('confirmed').slice(0, 5).forEach((r) => addSeat('confirmed', null, r.id, todayAt()));
 
+  // ---- organizer's own event: drop the demo, keep only Ria's prompt history --
+  if (setup) {
+    let rank = 0;
+    registrants.splice(0, registrants.length, ...setup.guests.map((g, i): Registrant => ({
+      id: `G${String(i + 1).padStart(4, '0')}`,
+      name: g.name, phone: g.phone, email: g.email, status: g.status,
+      teamName: g.teamName, teamSize: null, foodPref: g.foodPref, tshirtSize: g.tshirtSize,
+      callbackTime: null, notes: null,
+      waitlistRank: g.status === 'waitlist' ? ++rank : null,
+      updatedAt: now0,
+    })));
+    calls.length = 0;
+    seatEvents.length = 0;
+    feedback.splice(0, feedback.length, ...feedback.filter((f) => f.executionId.startsWith('exec_hist_')));
+  }
+
   // ---- live simulation -----------------------------------------------------
   const plans = new Map<string, Plan>();
   let idleSince = now0 - 20_000;
@@ -288,8 +310,10 @@ export function createMockSource(emit: Emit): Source {
     if (o === 'confirm') {
       r.teamName ??= pick(TEAMS);
       r.teamSize ??= between(2, 4);
-      r.foodPref ??= pick(FOOD);
-      r.tshirtSize ??= pick(SIZES);
+      if (ev.ria.collectFoodTshirt) {
+        r.foodPref ??= pick(FOOD);
+        r.tshirtSize ??= pick(SIZES);
+      }
     }
     const c: Call = {
       id: newId(), registrantId: r.id, name: r.name, status: 'ringing', terminationReason: null,
@@ -349,12 +373,16 @@ export function createMockSource(emit: Emit): Source {
         c.transcript = p.lines.slice(0, Math.min(p.lines.length, 1 + Math.floor((age - 5) / 4.5))).join('\n');
       }
     }
-    // Ria works the list herself: waitlist while seats are open, then uncalled registrants.
-    if (plans.size === 0 && now - idleSince > 14_000) {
+    // Ria works the list herself, within the jobs the organizer switched on:
+    // confirm uncalled registrants, then fill open seats from the waitlist.
+    if (plans.size === 0 && now - idleSince > (setup ? 6_000 : 14_000)) {
       const held = registrants.filter((r) => ['confirmed', 'maybe', 'invited'].includes(r.status)).length;
+      const tried = new Set(calls.map((c) => c.registrantId));
       const next =
-        (held < SEAT_CAPACITY ? registrants.filter((r) => r.status === 'waitlist').sort((a, b) => (a.waitlistRank ?? 0) - (b.waitlistRank ?? 0))[0] : undefined) ??
-        registrants.find((r) => r.status === 'registered');
+        (ev.ria.confirmByCall ? registrants.find((r) => r.status === 'registered' && r.phone && !tried.has(r.id)) : undefined) ??
+        (ev.ria.fillFromWaitlist && held < ev.capacity
+          ? registrants.filter((r) => r.status === 'waitlist' && r.phone).sort((a, b) => (a.waitlistRank ?? 0) - (b.waitlistRank ?? 0))[0]
+          : undefined);
       if (next) startCall(next);
       else idleSince = now;
     }
@@ -368,12 +396,13 @@ export function createMockSource(emit: Emit): Source {
       seatEvents: [...seatEvents].sort((a, b) => b.at - a.at),
       feedback: [...feedback],
       promptVersions: [...versions].sort((a, b) => b.appliedAt - a.appliedAt),
+      event: ev,
       ready: true,
       error: null,
     });
 
   // one call is already on the line when the board opens
-  startCall(byStatus('waitlist')[0], 'confirm', now0 - 41_000);
+  if (!setup) startCall(byStatus('waitlist')[0], 'confirm', now0 - 41_000);
   tick();
   const timer = setInterval(tick, 1000);
 
@@ -399,5 +428,7 @@ export function createMockSource(emit: Emit): Source {
       rerank();
       push();
     },
+    // The data layer swaps in a fresh mock built from the new guest list.
+    async launch() {},
   };
 }

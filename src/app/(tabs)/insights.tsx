@@ -1,8 +1,7 @@
 import { Platform, Share, Text, View } from 'react-native';
 import { Button, Card, Col, EmptyNote, PageHeader, Screen, SectionTitle, Split, Ticker, useNarrow } from '../../components/ui';
-import { EVENT_NAME } from '../../data/config';
 import { headcountCsv, ratingsByVersion, tally } from '../../data/selectors';
-import { useData } from '../../data/store';
+import { useData, useEvent } from '../../data/store';
 import { fmtDay } from '../../lib/format';
 import { F, useTheme } from '../../theme';
 
@@ -28,6 +27,7 @@ export default function Insights() {
   const t = useTheme();
   const narrow = useNarrow();
   const { registrants, feedback, promptVersions } = useData();
+  const slug = useEvent().name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'event';
   const confirmed = registrants.filter((r) => r.status === 'confirmed');
   const food = tally(confirmed, 'foodPref', FOOD_ORDER);
   const shirts = tally(confirmed, 'tshirtSize', SIZE_ORDER);
@@ -38,10 +38,10 @@ export default function Insights() {
 
   const exportTotals = () =>
     downloadCsv(
-      `${EVENT_NAME.toLowerCase()}-food-tshirts-${stamp}.csv`,
+      `${slug}-food-tshirts-${stamp}.csv`,
       ['category,value,count', ...food.map((f) => `food,${f.key},${f.count}`), ...shirts.map((s) => `tshirt,${s.key},${s.count}`)].join('\n'),
     );
-  const exportPeople = () => downloadCsv(`${EVENT_NAME.toLowerCase()}-confirmed-${stamp}.csv`, headcountCsv(confirmed));
+  const exportPeople = () => downloadCsv(`${slug}-confirmed-${stamp}.csv`, headcountCsv(confirmed));
 
   return (
     <Screen>

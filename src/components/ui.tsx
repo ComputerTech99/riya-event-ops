@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
-import { memo, useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react';
+import { Children, memo, useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react';
 import {
   ActivityIndicator, Animated, Easing, Pressable, ScrollView, Text, View, useWindowDimensions,
   type StyleProp, type TextStyle, type ViewStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { F, ND, useTheme } from '../theme';
+import Svg, { Circle } from 'react-native-svg';
+import { F, ND, useTheme, type Theme } from '../theme';
 
 export type IconName = ComponentProps<typeof Ionicons>['name'];
 export const Icon = Ionicons;
@@ -22,12 +23,12 @@ export function Screen({ children }: { children: ReactNode }) {
       style={{ flex: 1, backgroundColor: t.bg }}
       contentContainerStyle={{
         alignItems: 'center',
-        paddingHorizontal: narrow ? 16 : 32,
-        paddingTop: narrow ? 8 : 28,
+        paddingHorizontal: narrow ? 18 : 44,
+        paddingTop: narrow ? 6 : 34,
         paddingBottom: narrow ? 110 + insets.bottom : 48,
       }}
     >
-      <View style={{ width: '100%', maxWidth: 1120, gap: narrow ? 14 : 20 }}>{children}</View>
+      <View style={{ width: '100%', maxWidth: 1180, gap: narrow ? 18 : 24 }}>{children}</View>
     </ScrollView>
   );
 }
@@ -36,59 +37,70 @@ export function PageHeader({ title, subtitle, right }: { title: string; subtitle
   const t = useTheme();
   const narrow = useNarrow();
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 2 }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
       <View style={{ gap: 4, flexShrink: 1 }}>
-        <Text style={{ fontFamily: F.bold, fontSize: narrow ? 24 : 28, color: t.text, letterSpacing: -0.6 }}>{title}</Text>
-        {subtitle ? <Text style={{ fontFamily: F.medium, fontSize: 14, color: t.muted }}>{subtitle}</Text> : null}
+        <Text style={{ fontFamily: F.semibold, fontSize: narrow ? 26 : 34, color: t.text, letterSpacing: -0.9 }}>{title}</Text>
+        {subtitle ? <Text style={{ fontFamily: F.regular, fontSize: 15, color: t.muted }}>{subtitle}</Text> : null}
       </View>
       {right}
     </View>
   );
 }
 
-export function Card({ children, style, pad = 18 }: { children: ReactNode; style?: StyleProp<ViewStyle>; pad?: number }) {
+/** A section: no box, just a hairline on top. */
+export function Card({ children, style, pad = 20 }: { children: ReactNode; style?: StyleProp<ViewStyle>; pad?: number }) {
   const t = useTheme();
-  return (
-    <View style={[{ backgroundColor: t.surface, borderRadius: 18, borderWidth: t.mode === 'light' ? 1 : 0, borderColor: t.border, padding: pad }, t.shadow, style]}>
-      {children}
-    </View>
-  );
+  return <View style={[{ borderTopWidth: 1, borderTopColor: t.border, paddingTop: pad, paddingBottom: Math.round(pad / 2) }, style]}>{children}</View>;
 }
 
-export function SectionTitle({ title, count, action, onAction }: { title: string; count?: number; action?: string; onAction?: () => void }) {
+export function SectionTitle({ title, count, note, action, onAction, right }: {
+  title: string; count?: number; note?: string; action?: string; onAction?: () => void; right?: ReactNode;
+}) {
   const t = useTheme();
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <Text style={{ fontFamily: F.semibold, fontSize: 15, color: t.text }}>{title}</Text>
-        {count != null && (
-          <View style={{ backgroundColor: t.surface2, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 }}>
-            <Text style={{ fontFamily: F.semibold, fontSize: 12, color: t.muted }}>{count}</Text>
-          </View>
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flexShrink: 1 }}>
+        <Text style={{ fontFamily: F.semibold, fontSize: 20, color: t.text, letterSpacing: -0.4 }}>{title}</Text>
+        {(count != null || note) && (
+          <>
+            <View style={{ width: 1, height: 16, backgroundColor: t.border }} />
+            <Text style={{ fontFamily: F.regular, fontSize: 14, color: t.muted, flexShrink: 1 }} numberOfLines={1}>
+              {count != null && <Text style={{ fontFamily: F.semibold, color: t.text }}>{count}</Text>}
+              {count != null && note ? ' ' : ''}{note}
+            </Text>
+          </>
         )}
       </View>
+      {right}
       {action && (
-        <Text onPress={onAction} style={{ fontFamily: F.medium, fontSize: 13, color: t.muted }}>{action}</Text>
+        <Text onPress={onAction} style={{ fontFamily: F.medium, fontSize: 14, color: t.muted }}>{action}</Text>
       )}
     </View>
   );
 }
 
-/** Side by side when wide, stacked on phones. */
+/** Side by side with a hairline between columns when wide, stacked on phones. */
 export function Split({ children, gap }: { children: ReactNode; gap?: number }) {
+  const t = useTheme();
   const narrow = useNarrow();
-  return <View style={{ flexDirection: narrow ? 'column' : 'row', gap: gap ?? (narrow ? 14 : 20), alignItems: narrow ? 'stretch' : 'flex-start' }}>{children}</View>;
+  const kids = Children.toArray(children);
+  if (narrow) return <View style={{ gap: gap ?? 18 }}>{kids}</View>;
+  return (
+    <View style={{ flexDirection: 'row', gap: gap ?? 32, alignItems: 'stretch' }}>
+      {kids.flatMap((k, i) => (i === 0 ? [k] : [<View key={`d${i}`} style={{ width: 1, backgroundColor: t.border }} />, k]))}
+    </View>
+  );
 }
 
 /** A column inside <Split>; `grow` sets its share of the row on wide screens. */
 export function Col({ children, grow = 1, style }: { children: ReactNode; grow?: number; style?: StyleProp<ViewStyle> }) {
   const narrow = useNarrow();
-  return <View style={[{ gap: narrow ? 14 : 20 }, !narrow && { flexGrow: grow, flexBasis: 0, minWidth: 0 }, style]}>{children}</View>;
+  return <View style={[{ gap: narrow ? 18 : 24 }, !narrow && { flexGrow: grow, flexBasis: 0, minWidth: 0 }, style]}>{children}</View>;
 }
 
 export function Grid({ children, cols }: { children: ReactNode[]; cols: number }) {
   const narrow = useNarrow();
-  const gap = narrow ? 12 : 20;
+  const gap = narrow ? 14 : 24;
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap }}>
       {children.map((c, i) => (
@@ -100,9 +112,9 @@ export function Grid({ children, cols }: { children: ReactNode[]; cols: number }
 
 type Tone = 'primary' | 'green' | 'amber' | 'red' | 'muted';
 
-export function toneColors(t: ReturnType<typeof useTheme>, tone: Tone) {
+export function toneColors(t: Theme, tone: Tone) {
   switch (tone) {
-    case 'primary': return { fg: t.mode === 'dark' ? t.primary : t.primary, bg: t.primarySoft };
+    case 'primary': return { fg: t.primary, bg: t.primarySoft };
     case 'green': return { fg: t.green, bg: t.greenSoft };
     case 'amber': return { fg: t.amber, bg: t.amberSoft };
     case 'red': return { fg: t.red, bg: t.redSoft };
@@ -128,10 +140,11 @@ const STATUS: Record<string, { label: string; tone: Tone; pulse?: boolean }> = {
   escalation: { label: 'Escalation', tone: 'red' },
 };
 
+/** Neutral grey pill; colour lives only in the dot. */
 export function StatusChip({ kind, label }: { kind: string; label?: string }) {
   const t = useTheme();
   const spec = STATUS[kind] ?? { label: kind, tone: 'muted' as Tone };
-  const c = toneColors(t, spec.tone);
+  const dot = toneColors(t, spec.tone).fg;
   const o = useRef(new Animated.Value(1)).current;
   useEffect(() => {
     if (!spec.pulse) return;
@@ -143,22 +156,22 @@ export function StatusChip({ kind, label }: { kind: string; label?: string }) {
     return () => loop.stop();
   }, [spec.pulse, o]);
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: c.bg, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, alignSelf: 'flex-start' }}>
-      <Animated.View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.fg, opacity: o }} />
-      <Text style={{ fontFamily: F.semibold, fontSize: 12, color: c.fg }} numberOfLines={1}>{label ?? spec.label}</Text>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: t.surface2, borderRadius: 999, paddingHorizontal: 12, height: 30, alignSelf: 'flex-start' }}>
+      <Animated.View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: dot, opacity: o }} />
+      <Text style={{ fontFamily: F.medium, fontSize: 13, color: t.text }} numberOfLines={1}>{label ?? spec.label}</Text>
     </View>
   );
 }
 
 export function Button({ label, onPress, variant = 'primary', icon, busy, disabled, size = 'md', style }: {
-  label?: string; onPress: () => void; variant?: 'primary' | 'soft' | 'outline' | 'danger';
+  label?: string; onPress: () => void; variant?: 'primary' | 'soft' | 'outline' | 'danger' | 'inverse';
   icon?: IconName; busy?: boolean; disabled?: boolean; size?: 'sm' | 'md'; style?: StyleProp<ViewStyle>;
 }) {
   const t = useTheme();
-  const bg = variant === 'primary' ? t.primary : variant === 'soft' ? t.primarySoft : variant === 'danger' ? t.redSoft : 'transparent';
-  const fg = variant === 'primary' ? t.onPrimary : variant === 'danger' ? t.red : variant === 'soft' ? (t.mode === 'dark' ? t.primary : t.primary) : t.text;
+  const bg = { primary: t.primary, soft: t.surface2, danger: t.redSoft, outline: 'transparent', inverse: t.onHero }[variant];
+  const fg = { primary: t.onPrimary, soft: t.text, danger: t.red, outline: t.text, inverse: t.hero }[variant];
   const off = disabled || busy;
-  const h = size === 'sm' ? 34 : 42;
+  const h = size === 'sm' ? 34 : 44;
   return (
     <Pressable
       onPress={off ? undefined : onPress}
@@ -167,11 +180,11 @@ export function Button({ label, onPress, variant = 'primary', icon, busy, disabl
       accessibilityState={{ disabled: !!off, busy: !!busy }}
       style={(st) => [
         {
-          height: h, minWidth: label ? undefined : h, paddingHorizontal: label ? (size === 'sm' ? 14 : 18) : 0,
-          borderRadius: 999, backgroundColor: bg, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+          height: h, minWidth: label ? undefined : h, paddingHorizontal: label ? (size === 'sm' ? 14 : 22) : 0,
+          borderRadius: 999, backgroundColor: bg, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
           borderWidth: variant === 'outline' ? 1 : 0, borderColor: t.border,
         },
-        ((st as { hovered?: boolean }).hovered || st.pressed) && { opacity: 0.86 },
+        ((st as { hovered?: boolean }).hovered || st.pressed) && { opacity: 0.85 },
         st.pressed && { transform: [{ scale: 0.98 }] },
         off && { opacity: 0.5 },
         style,
@@ -182,17 +195,18 @@ export function Button({ label, onPress, variant = 'primary', icon, busy, disabl
       ) : (
         <>
           {icon && <Ionicons name={icon} size={size === 'sm' ? 15 : 17} color={fg} />}
-          {label && <Text style={{ fontFamily: F.semibold, fontSize: size === 'sm' ? 13 : 14, color: fg }}>{label}</Text>}
+          {label && <Text style={{ fontFamily: F.semibold, fontSize: size === 'sm' ? 13 : 15, color: fg }}>{label}</Text>}
         </>
       )}
     </Pressable>
   );
 }
 
-const AVATAR_TONES = ['#E9E4FB', '#E2F1E7', '#FCEADB', '#E0EEF8', '#F8E3EC', '#EFF0D9'];
-const AVATAR_INK = ['#5A54C8', '#1F8F55', '#C2621A', '#2B6CA3', '#B23A6B', '#6F7A2C'];
+const AVATAR_TONES = ['#ECE6FB', '#E3F3E8', '#FCEBDD', '#E1EDF8', '#F8E4EC', '#EEF0DC'];
+const AVATAR_INK = ['#5B4BC4', '#1E8A4F', '#C2621A', '#2B6CA3', '#B23A6B', '#6F7A2C'];
 
-export function Avatar({ name, size = 40 }: { name: string; size?: number }) {
+/** Initials on a soft tone; rounded square by default, like the photo tiles in the reference. */
+export function Avatar({ name, size = 44, round }: { name: string; size?: number; round?: boolean }) {
   const t = useTheme();
   let h = 0;
   for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
@@ -200,8 +214,8 @@ export function Avatar({ name, size = 40 }: { name: string; size?: number }) {
   const initials = name.split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase();
   const dark = t.mode === 'dark';
   return (
-    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: dark ? t.surface2 : AVATAR_TONES[i], alignItems: 'center', justifyContent: 'center' }}>
-      <Text style={{ fontFamily: F.bold, fontSize: size * 0.36, color: dark ? t.text : AVATAR_INK[i] }}>{initials}</Text>
+    <View style={{ width: size, height: size, borderRadius: round ? size / 2 : size * 0.28, backgroundColor: dark ? t.surface2 : AVATAR_TONES[i], alignItems: 'center', justifyContent: 'center' }}>
+      <Text style={{ fontFamily: F.semibold, fontSize: size * 0.34, color: dark ? t.text : AVATAR_INK[i] }}>{initials}</Text>
     </View>
   );
 }
@@ -216,14 +230,49 @@ export function IconTile({ icon, tone = 'primary', size = 38 }: { icon: IconName
   );
 }
 
-/** Pill tabs. Scrolls sideways on phones. */
+/** Up/down badge plus "x% from yesterday". */
+export function Delta({ pct, upIsGood = true }: { pct: number | null; upIsGood?: boolean }) {
+  const t = useTheme();
+  // Nothing to compare on day one; keep the line height so the row doesn't jump.
+  if (pct == null) return <Text style={{ fontFamily: F.regular, fontSize: 13, color: t.faint }}>{'\u00a0'}</Text>;
+  const up = pct >= 0;
+  const color = up === upIsGood ? t.green : t.red;
+  return <Text style={{ fontFamily: F.regular, fontSize: 13, color }}>{Math.abs(pct)}% from yesterday</Text>;
+}
+
+export function DeltaBadge({ pct, upIsGood = true }: { pct: number | null; upIsGood?: boolean }) {
+  const t = useTheme();
+  if (pct == null) return null;
+  const up = pct >= 0;
+  const color = up === upIsGood ? t.green : t.red;
+  return (
+    <View style={{ width: 22, height: 22, borderRadius: 6, backgroundColor: color, alignItems: 'center', justifyContent: 'center' }}>
+      <Ionicons name={up ? 'arrow-up' : 'arrow-down'} size={14} color="#FFFFFF" />
+    </View>
+  );
+}
+
+/** Thin ring showing a 0–100 value. */
+export function ProgressRing({ pct, size = 26, stroke = 3.5 }: { pct: number; size?: number; stroke?: number }) {
+  const t = useTheme();
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  return (
+    <Svg width={size} height={size} style={{ transform: [{ rotate: '-90deg' }] }}>
+      <Circle cx={size / 2} cy={size / 2} r={r} stroke={t.surface2} strokeWidth={stroke} fill="none" />
+      <Circle cx={size / 2} cy={size / 2} r={r} stroke={t.ring} strokeWidth={stroke} fill="none" strokeLinecap="round" strokeDasharray={`${(c * Math.max(0, Math.min(100, pct))) / 100} ${c}`} />
+    </Svg>
+  );
+}
+
+/** Pill tabs: black pill for the active one. Scrolls sideways on phones. */
 export function Segmented<K extends string>({ options, value, onChange }: {
   options: { key: K; label: string; count?: number }[]; value: K; onChange: (k: K) => void;
 }) {
   const t = useTheme();
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }}>
-      <View style={{ flexDirection: 'row', gap: 4, backgroundColor: t.surface, borderRadius: 999, padding: 4, borderWidth: 1, borderColor: t.border }}>
+      <View style={{ flexDirection: 'row', gap: 2, borderRadius: 999, padding: 4, borderWidth: 1, borderColor: t.border }}>
         {options.map((o) => {
           const on = o.key === value;
           return (
@@ -232,11 +281,11 @@ export function Segmented<K extends string>({ options, value, onChange }: {
               onPress={() => onChange(o.key)}
               accessibilityRole="tab"
               accessibilityState={{ selected: on }}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, height: 34, borderRadius: 999, backgroundColor: on ? t.primary : 'transparent' }}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, height: 36, borderRadius: 999, backgroundColor: on ? t.primary : 'transparent' }}
             >
-              <Text style={{ fontFamily: F.semibold, fontSize: 13, color: on ? t.onPrimary : t.muted }}>{o.label}</Text>
+              <Text style={{ fontFamily: F.medium, fontSize: 14, color: on ? t.onPrimary : t.muted }}>{o.label}</Text>
               {o.count != null && (
-                <Text style={{ fontFamily: F.semibold, fontSize: 12, color: on ? t.onPrimary : t.faint, opacity: on ? 0.8 : 1 }}>{o.count}</Text>
+                <Text style={{ fontFamily: F.medium, fontSize: 12, color: on ? t.onPrimary : t.faint, opacity: on ? 0.7 : 1 }}>{o.count}</Text>
               )}
             </Pressable>
           );
@@ -256,19 +305,6 @@ export function Bar({ value, max, color }: { value: number; max: number; color: 
   );
 }
 
-/** Dotted progress, one tick per unit. */
-export function TickBar({ value, max, color, ticks = 30 }: { value: number; max: number; color: string; ticks?: number }) {
-  const t = useTheme();
-  const on = max ? Math.round((value / max) * ticks) : 0;
-  return (
-    <View style={{ flexDirection: 'row', gap: 3, height: 12, alignItems: 'center' }}>
-      {Array.from({ length: ticks }).map((_, i) => (
-        <View key={i} style={{ flex: 1, height: 12, borderRadius: 2, backgroundColor: i < on ? color : t.surface2 }} />
-      ))}
-    </View>
-  );
-}
-
 export function Divider() {
   const t = useTheme();
   return <View style={{ height: 1, backgroundColor: t.border }} />;
@@ -279,7 +315,7 @@ export function EmptyNote({ icon = 'checkmark-circle-outline', text }: { icon?: 
   return (
     <View style={{ alignItems: 'center', paddingVertical: 22, gap: 8 }}>
       <Ionicons name={icon} size={24} color={t.faint} />
-      <Text style={{ fontFamily: F.medium, fontSize: 14, color: t.muted, textAlign: 'center' }}>{text}</Text>
+      <Text style={{ fontFamily: F.regular, fontSize: 14, color: t.muted, textAlign: 'center' }}>{text}</Text>
     </View>
   );
 }
@@ -315,8 +351,8 @@ export function Ticker({ value, style }: { value: string | number; style?: Style
 export function KV({ label, children, last }: { label: string; children: ReactNode; last?: boolean }) {
   const t = useTheme();
   return (
-    <View style={{ flexDirection: 'row', gap: 12, paddingVertical: 11, borderBottomWidth: last ? 0 : 1, borderBottomColor: t.border }}>
-      <Text style={{ fontFamily: F.medium, fontSize: 13, color: t.muted, width: 120 }}>{label}</Text>
+    <View style={{ flexDirection: 'row', gap: 12, paddingVertical: 12, borderBottomWidth: last ? 0 : 1, borderBottomColor: t.border }}>
+      <Text style={{ fontFamily: F.regular, fontSize: 14, color: t.muted, width: 120 }}>{label}</Text>
       <View style={{ flex: 1, minWidth: 0 }}>{typeof children === 'string' ? <Text style={{ fontFamily: F.medium, fontSize: 14, color: t.text }}>{children}</Text> : children}</View>
     </View>
   );

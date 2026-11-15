@@ -59,12 +59,46 @@ export interface PromptVersion {
   appliedAt: number;
 }
 
+export type EventType = 'hackathon' | 'meetup' | 'workshop' | 'conference' | 'other';
+
+/** What Ria is allowed to do for this event. */
+export interface RiaJobs {
+  confirmByCall: boolean;
+  fillFromWaitlist: boolean;
+  collectFoodTshirt: boolean;
+  feedbackEmail: boolean;
+}
+
+export interface EventConfig {
+  type: EventType;
+  name: string;
+  /** As the organizer typed it, or ISO from Luma. */
+  date: string;
+  venue: string;
+  capacity: number;
+  lumaUrl: string | null;
+  ria: RiaJobs;
+}
+
+/** A guest coming in from a CSV or typed by hand, before it becomes a registrant. */
+export interface GuestInput {
+  name: string;
+  phone: string;
+  email: string;
+  teamName: string | null;
+  foodPref: string | null;
+  tshirtSize: string | null;
+  status: 'registered' | 'waitlist';
+}
+
 export interface DataState {
   registrants: Registrant[];
   calls: Call[];
   seatEvents: SeatEvent[];
   feedback: Feedback[];
   promptVersions: PromptVersion[];
+  /** The event being run; null until one is set up (Firestore) or the demo loads (mock). */
+  event: EventConfig | null;
   ready: boolean;
   error: string | null;
   source: 'mock' | 'firestore';
@@ -81,6 +115,8 @@ export interface Source {
   stop(): void;
   placeCall(req: PlaceCallRequest): Promise<string>;
   promote(registrantId: string): Promise<void>;
+  /** Save the event and its guests as the live event. */
+  launch(event: EventConfig, guests: GuestInput[]): Promise<void>;
 }
 
 export type Emit = (patch: Partial<DataState>) => void;

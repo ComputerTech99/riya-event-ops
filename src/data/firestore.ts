@@ -1,11 +1,11 @@
 import { getApp, getApps, initializeApp } from 'firebase/app';
 import {
-  collection, doc, getFirestore, limit, onSnapshot, orderBy, query, serverTimestamp, updateDoc,
+  collection, doc, getFirestore, limit, onSnapshot, orderBy, query, serverTimestamp, updateDoc, writeBatch,
   type DocumentData, type Query,
 } from 'firebase/firestore';
 import { FIREBASE_CONFIG, PLACE_CALL_URL } from './config';
 import { toCall, toFeedback, toPromptVersion, toRegistrant, toSeatEvent } from './normalize';
-import type { DataState, Emit, PlaceCallRequest, Source } from './types';
+import type { DataState, Emit, EventConfig, GuestInput, PlaceCallRequest, Source } from './types';
 
 type Key = 'registrants' | 'calls' | 'seatEvents' | 'feedback' | 'promptVersions';
 
@@ -34,6 +34,15 @@ export function createFirestoreSource(emit: Emit): Source {
     listen('seatEvents', query(collection(db, 'seatEvents'), orderBy('at', 'desc'), limit(200)), toSeatEvent),
     listen('feedback', query(collection(db, 'feedback'), orderBy('at', 'desc'), limit(1000)), toFeedback),
     listen('promptVersions', query(collection(db, 'promptVersions'), orderBy('appliedAt', 'desc')), toPromptVersion),
+    // The newest event doc is the one being run.
+    onSnapshot(
+      query(collection(db, 'events'), orderBy('createdAt', 'desc'), limit(1)),
+      (snap) => {
+        const d = snap.docs[0]?.data();
+        emit({ event: d ? (d.config as EventConfig) : null });
+      },
+      (err) => emit({ error: `events: ${err.code ?? err.message}` }),
+    ),
   ];
 
   return {
@@ -45,6 +54,29 @@ export function createFirestoreSource(emit: Emit): Source {
         waitlistRank: null,
         updatedAt: serverTimestamp(),
       });
+    },
+    async launch(event: EventConfig, guests: GuestInput[]) {
+      const eventRef = doc(collection(db, 'events'));
+      let rank = 0;
+      const writes = guests.map((g) => ({
+        ref: doc(collection(db, 'registrants')),
+        data: {
+          ...g,
+          eventId: eventRef.id,
+          teamSize: null, callbackTime: null, notes: null,
+          waitlistRank: g.status === 'waitlist' ? ++rank : null,
+          updatedAt: serverTimestamp(),
+        },
+      }));
+      // Firestore batches cap at 500 writes; the event doc goes in the last one so it lands after its guests.
+      for (let i = 0; i < writes.length; i += 450) {
+        const b = writeBatch(db);
+        writes.slice(i, i + 450).forEach((w) => b.set(w.ref, w.data));
+        await b.commit();
+      }
+      const b = writeBatch(db);
+      b.set(eventRef, { config: event, guestCount: guests.length, createdAt: serverTimestamp() });
+      await b.commit();
     },
   };
 }

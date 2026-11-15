@@ -1,3 +1,5 @@
+import type { EventConfig } from './types';
+
 /**
  * Runtime config. Expo inlines EXPO_PUBLIC_* only when read as `process.env.EXPO_PUBLIC_X`
  * literally, so each one is spelled out.
@@ -26,3 +28,14 @@ export const PLACE_CALL_URL =
 export const SEAT_CAPACITY = Number(process.env.EXPO_PUBLIC_SEAT_CAPACITY || 40);
 
 export const EVENT_NAME = process.env.EXPO_PUBLIC_EVENT_NAME || 'HACK2026';
+
+/** The sample event the mock feed runs until a real one is set up. */
+export const DEMO_EVENT: EventConfig = {
+  type: 'hackathon',
+  name: EVENT_NAME,
+  date: 'Sat 6 – Sun 7 Dec',
+  venue: 'Bengaluru',
+  capacity: SEAT_CAPACITY,
+  lumaUrl: null,
+  ria: { confirmByCall: true, fillFromWaitlist: true, collectFoodTshirt: true, feedbackEmail: true },
+};
