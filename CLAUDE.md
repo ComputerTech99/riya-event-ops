@@ -3,7 +3,7 @@
 Riya: a Bolna voice agent that calls hackathon registrants, with a Firebase backend.
 
 - `firebase/` is the backend (this file's scope). Details in `firebase/README.md`.
-- `Ria Control/` is a separate Expo app with its own git repo. `.playwright-mcp/` is browser-tool output. Don't modify either unless asked.
+- `Ria Control/` is the Expo organiser dashboard (merged into this repo on 2026-11-15 via git subtree; it has its own CLAUDE.md). `.playwright-mcp/` is browser-tool output; don't modify it.
 
 ## Key facts
 
@@ -85,6 +85,7 @@ Use `--non-interactive` for deploys from Claude.
 ## Repository
 
 - Git root is `wisper-bolna/` (branch `main`). It tracks `CLAUDE.md` and `firebase/`: functions source, tests, seed, prompts, rules and indexes.
-- Not tracked: `firebase/.secrets.local` (tokens), `node_modules`, `lib/`, `Ria Control/` (its own git repo) and `.playwright-mcp/`.
+- Tracked: `Ria Control/` too (single repo since 2026-11-15; old `ria-control` GitHub repo is superseded).
+- Not tracked: `firebase/.secrets.local` (tokens), `node_modules`, `lib/` and `.playwright-mcp/`.
 - `firebase/functions/.env.riya-event-ops-485f` **is** tracked. It holds only non-secret params (agent ID, dialer limits). Secrets live in Secret Manager.
 - The Bolna agent config (with the tool and webhook tokens) lives in Bolna, not in git. To recreate it, use the prompt files in `firebase/prompt/` plus the tokens from `.secrets.local`.
