@@ -6,6 +6,7 @@
 [![Expo](https://img.shields.io/badge/dashboard-Expo%20SDK%2058-000020?style=flat-square&logo=expo&logoColor=white)](./Ria%20Control)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Node%2022-3178C6?style=flat-square&logo=typescript&logoColor=white)](./firebase/functions)
 [![Tests](https://img.shields.io/badge/unit%20tests-17%20passing-16A34A?style=flat-square)](#testing)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](./LICENSE)
 
 **Built for Build Out Loud: A Wispr Flow × Bolna Hackathon** · [Event page](https://luma.com/1a2rjj9r)
 
@@ -425,6 +426,10 @@ npm run deploy            # expo export -p web && firebase deploy --only hosting
 - A knowledge base for richer event Q&A (schedule, prizes, rules).
 - WhatsApp follow-up after a call with the confirmed details.
 - Restrict the webhook to Bolna's published IP addresses.
+
+## License
+
+[MIT](./LICENSE) © 2026 Ojash Kumar Gupta
 
 ---
 
