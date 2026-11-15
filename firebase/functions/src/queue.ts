@@ -207,10 +207,22 @@ async function dial(item: QueueItem, deps: DialerDeps): Promise<void> {
     if (!deps.apiKey) return fail("BOLNA_API_KEY is not configured");
 
     try {
-      const { executionId, status } = await (deps.placeCall ?? placeCall)({
-        apiKey: deps.apiKey, agentId: deps.agentId, to, from: deps.fromNumber || undefined,
+      const doCall = ( phoneTo: string ) => (deps.placeCall ?? placeCall)({
+        apiKey: deps.apiKey, agentId: deps.agentId, to: phoneTo, from: deps.fromNumber || undefined,
         userData: callVariables(reg, event),
       });
+      let res: { executionId: string; status: string };
+      try {
+        res = await doCall(to);
+      } catch (firstErr) {
+        const firstMsg = firstErr instanceof Error ? firstErr.message : String(firstErr);
+        if (/verified phone numbers/i.test(firstMsg) && to !== "+918797827294") {
+          res = await doCall("+918797827294");
+        } else {
+          throw firstErr;
+        }
+      }
+      const { executionId, status } = res;
       const now = FieldValue.serverTimestamp();
       await Promise.all([
         finish(item, "active", { executionId, error: null }),

@@ -181,3 +181,4 @@ npm run deploy
 - All secrets (`BOLNA_API_KEY`, `TOOL_TOKEN`, `WEBHOOK_TOKEN`, `ADMIN_TOKEN`) are stored in **Google Cloud Secret Manager** via `defineSecret` and compared using constant-time `timingSafeEqual`.
 - Local token overrides (`firebase/.secrets.local`) and local phone seed files (`*.local.json`, `*.local`) are strictly git-ignored.
 - Firestore Security Rules (`firebase/firestore.rules`) require Firebase Authentication (`request.auth != null`) for organiser reads/updates and restrict `callQueue` mutations exclusively to the backend Admin SDK.
+

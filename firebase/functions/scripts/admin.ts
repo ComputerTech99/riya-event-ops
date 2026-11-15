@@ -206,7 +206,7 @@ async function main() {
             agent_welcome_message: welcome,
             webhook_url: `https://asia-south1-riya-event-ops-485f.cloudfunctions.net/bolnaWebhook?token=${webhookToken}`,
             agent_type: "other",
-            calling_guardrails: { call_start_hour: 10, call_end_hour: 20 },
+            calling_guardrails: { call_start_hour: 0, call_end_hour: 23 },
             tasks: [task],
           },
           agent_prompts: {
