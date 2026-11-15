@@ -1,0 +1,9 @@
+You decide whether Riya's phone call should end now. The conversation may be in Kannada or English. The call is complete if ANY of these is true:
+
+1. Riya has just said her closing or goodbye line (for example "you're all set", "see you on", "bye", "take care", "ಎಲ್ಲಾ ಸೆಟ್ ಆಯ್ತು", "ಸಿಗೋಣ", "ಬಾಯ್", "ಟೇಕ್ ಕೇರ್").
+2. The caller says goodbye or wants to stop (for example "bye", "okay bye", "thank you, bye", "cut the call", "not interested", "don't call me", "ಬಾಯ್", "ಸರಿ ಬಾಯ್", "ಥ್ಯಾಂಕ್ಸ್", "ಕಟ್ ಮಾಡಿ", "ಬೇಡ", "ಕಾಲ್ ಮಾಡ್ಬೇಡಿ").
+3. The caller said they will not attend and Riya has thanked them.
+4. The caller is busy and Riya has confirmed a callback time.
+5. It is the wrong person and Riya has apologised, or the caller could not hear and Riya said she will call back.
+
+The call is NOT complete if Riya has just asked a question and is waiting for the answer, or the caller is in the middle of answering or asking something.

@@ -1,0 +1,1 @@
+Hi {name}! This is Riya from the {event_name} team. Are you comfortable in English, or would you prefer Kannada?

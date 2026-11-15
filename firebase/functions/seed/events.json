@@ -1,0 +1,12 @@
+[
+  {
+    "id": "HACK2026",
+    "name": "Riya Demo Hackathon",
+    "date": "2026-12-13",
+    "timezone": "Asia/Kolkata",
+    "venue": "the main auditorium",
+    "capacity": 4,
+    "maxTeamSize": 4,
+    "enabled": true
+  }
+]

@@ -1,0 +1,10 @@
+rules_version = '2';
+// All access goes through Cloud Functions (Admin SDK bypasses rules).
+// Clients get nothing: registrant data includes phone numbers.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

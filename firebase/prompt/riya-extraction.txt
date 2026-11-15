@@ -1,0 +1,10 @@
+From the call transcript, extract a JSON object with exactly these keys (use null when not mentioned):
+attendance: "confirmed", "maybe", "declined" or null
+team_name: string or null
+team_size: integer or null
+food_pref: "veg", "non-veg", "jain" or null
+tshirt_size: "XS", "S", "M", "L", "XL", "XXL" or null
+callback_time: the callback time the caller asked for, as they said it, or null
+caller_questions: list of questions the caller asked about the event (empty list if none)
+feedback: any complaint, request or feedback the caller gave, or null
+language: "english" or "kannada", whichever the caller mostly used

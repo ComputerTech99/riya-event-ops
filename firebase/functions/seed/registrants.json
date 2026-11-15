@@ -1,0 +1,9 @@
+[
+  {"id": "R001", "eventId": "HACK2026", "name": "Aarav Sharma", "phone": "+91XXXXXXXXXX", "status": "registered"},
+  {"id": "R002", "eventId": "HACK2026", "name": "Diya Patel", "phone": "+91XXXXXXXXXX", "status": "registered", "teamName": "Byte Busters", "foodPref": "veg"},
+  {"id": "R003", "eventId": "HACK2026", "name": "Kabir Singh", "phone": "+91XXXXXXXXXX", "status": "confirmed", "teamName": "Null Pointers", "teamSize": 3, "foodPref": "non-veg", "tshirtSize": "L"},
+  {"id": "R004", "eventId": "HACK2026", "name": "Ananya Iyer", "phone": "+91XXXXXXXXXX", "status": "maybe", "notes": "Will know after exams on 5 Dec."},
+  {"id": "R005", "eventId": "HACK2026", "name": "Vihaan Gupta", "phone": "+91XXXXXXXXXX", "status": "waitlist", "waitlistRank": 1},
+  {"id": "R006", "eventId": "HACK2026", "name": "Meera Nair", "phone": "+91XXXXXXXXXX", "status": "waitlist", "waitlistRank": 2, "foodPref": "jain"},
+  {"id": "R007", "eventId": "HACK2026", "name": "Arjun Reddy", "phone": "+91XXXXXXXXXX", "status": "waitlist", "waitlistRank": 3}
+]

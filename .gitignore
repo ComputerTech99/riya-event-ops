@@ -1,0 +1,25 @@
+# Secrets: never commit
+**/.secrets.local
+**/*.local
+**/.env
+**/.env.*.local
+*.pem
+*.key
+
+# Build / deps
+**/node_modules/
+firebase/functions/lib/
+**/.firebase/
+**/firebase-debug.log*
+**/firestore-debug.log*
+**/ui-debug.log*
+
+# Separate repos / tool output
+Ria Control/
+.playwright-mcp/
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+**/*.local.json
