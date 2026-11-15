@@ -1,5 +1,12 @@
 # Riya: Autonomous Voice Event-Ops Agent + Ria Control
 
+[![Live dashboard](https://img.shields.io/badge/demo-live%20dashboard-4F46E5?style=flat-square)](https://riya-event-ops-485f.web.app)
+[![Bolna](https://img.shields.io/badge/voice-Bolna-6D28D9?style=flat-square)](https://bolna.ai)
+[![Firebase](https://img.shields.io/badge/backend-Firebase%20Functions%20v2-FFCA28?style=flat-square&logo=firebase&logoColor=black)](./firebase)
+[![Expo](https://img.shields.io/badge/dashboard-Expo%20SDK%2058-000020?style=flat-square&logo=expo&logoColor=white)](./Ria%20Control)
+[![TypeScript](https://img.shields.io/badge/TypeScript-Node%2022-3178C6?style=flat-square&logo=typescript&logoColor=white)](./firebase/functions)
+[![Tests](https://img.shields.io/badge/unit%20tests-17%20passing-16A34A?style=flat-square)](#testing)
+
 **Built for Build Out Loud: A Wispr Flow × Bolna Hackathon** · [Event page](https://luma.com/1a2rjj9r)
 
 Riya is a voice agent that phones every registrant of an event and does the work organisers normally do by hand:
